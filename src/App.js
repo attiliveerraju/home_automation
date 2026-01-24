@@ -1,37 +1,41 @@
 import { useEffect, useRef, useState } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { onIdTokenChanged, signOut } from "firebase/auth";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { auth } from "./firebase";
 
 import Login from "./Login";
 import Dashboard from "./Dashboard";
 import ChangePassword from "./ChangePassword";
-import { useNavigate } from "react-router-dom";
 
-const INACTIVITY_TIME = 1 * 60 * 1000; // 5 minutes
+const INACTIVITY_TIME = 1 * 60 * 1000; // 1 minute
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
   const timerRef = useRef(null);
-
-  /* ---------- AUTH STATE ---------- */
   const navigate = useNavigate();
 
+  /* ---------- AUTH + TOKEN STATE ---------- */
   useEffect(() => {
-    const unsub = onIdTokenChanged(auth, async (user) => {
-      if (!user) {
+    const unsub = onIdTokenChanged(auth, async (u) => {
+      if (!u) {
+        setUser(null);
+        setReady(true);
         navigate("/login", { replace: true });
         return;
       }
 
       try {
-        // Force refresh token
-        await user.getIdToken(true);
+        // Force token refresh → detects password change
+        await u.getIdToken(true);
+        setUser(u);
       } catch {
-        await auth.signOut();
+        await signOut(auth);
+        setUser(null);
         navigate("/login", { replace: true });
       }
+
+      setReady(true);
     });
 
     return () => unsub();
@@ -49,26 +53,20 @@ export default function App() {
       }, INACTIVITY_TIME);
     };
 
-    // Events that count as activity
     const events = [
       "mousemove",
       "keydown",
       "click",
       "touchstart",
-      "scroll"
+      "scroll",
     ];
 
-    events.forEach(e =>
-      window.addEventListener(e, resetTimer)
-    );
-
-    resetTimer(); // start timer immediately
+    events.forEach(e => window.addEventListener(e, resetTimer));
+    resetTimer();
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      events.forEach(e =>
-        window.removeEventListener(e, resetTimer)
-      );
+      events.forEach(e => window.removeEventListener(e, resetTimer));
     };
   }, [user]);
 
@@ -79,20 +77,20 @@ export default function App() {
 
   /* ---------- ROUTES ---------- */
   return (
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/dashboard" /> : <Login />}
-        />
-        <Route
-          path="/dashboard"
-          element={user ? <Dashboard /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/change-password"
-          element={user ? <ChangePassword /> : <Navigate to="/login" />}
-        />
-        <Route path="*" element={<Navigate to="/login" />} />
-      </Routes>
+    <Routes>
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/dashboard" /> : <Login />}
+      />
+      <Route
+        path="/dashboard"
+        element={user ? <Dashboard /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/change-password"
+        element={user ? <ChangePassword /> : <Navigate to="/login" />}
+      />
+      <Route path="*" element={<Navigate to="/login" />} />
+    </Routes>
   );
 }
