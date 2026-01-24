@@ -6,6 +6,7 @@ import { auth } from "./firebase";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
 import ChangePassword from "./ChangePassword";
+import { useNavigate } from "react-router-dom";
 
 const INACTIVITY_TIME = 1 * 60 * 1000; // 5 minutes
 
