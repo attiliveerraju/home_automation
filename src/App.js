@@ -15,13 +15,26 @@ export default function App() {
   const timerRef = useRef(null);
 
   /* ---------- AUTH STATE ---------- */
+  const navigate = useNavigate();
+
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => {
-      setUser(u);
-      setReady(true);
+    const unsub = onIdTokenChanged(auth, async (user) => {
+      if (!user) {
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      try {
+        // Force refresh token
+        await user.getIdToken(true);
+      } catch {
+        await auth.signOut();
+        navigate("/login", { replace: true });
+      }
     });
+
     return () => unsub();
-  }, []);
+  }, [navigate]);
 
   /* ---------- INACTIVITY LOGOUT ---------- */
   useEffect(() => {
