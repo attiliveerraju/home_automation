@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/home_automation/static/css/main.50398fdb.css",
-    "main.js": "/home_automation/static/js/main.b7b297e0.js",
+    "main.css": "/home_automation/static/css/main.22790fd4.css",
+    "main.js": "/home_automation/static/js/main.548f470e.js",
     "index.html": "/home_automation/index.html",
-    "main.50398fdb.css.map": "/home_automation/static/css/main.50398fdb.css.map",
-    "main.b7b297e0.js.map": "/home_automation/static/js/main.b7b297e0.js.map"
+    "main.22790fd4.css.map": "/home_automation/static/css/main.22790fd4.css.map",
+    "main.548f470e.js.map": "/home_automation/static/js/main.548f470e.js.map"
   },
   "entrypoints": [
-    "static/css/main.50398fdb.css",
-    "static/js/main.b7b297e0.js"
+    "static/css/main.22790fd4.css",
+    "static/js/main.548f470e.js"
   ]
 }
