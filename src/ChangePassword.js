@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, signOut } from "firebase/auth";
+import {
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  signOut
+} from "firebase/auth";
 import { auth } from "./firebase";
 import { useNavigate } from "react-router-dom";
 import "./App.css";
@@ -38,8 +43,12 @@ export default function ChangePassword() {
 
     try {
       setLoading(true);
+
       const user = auth.currentUser;
-      const credential = EmailAuthProvider.credential(user.email, current);
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        current
+      );
 
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPass);
@@ -47,13 +56,20 @@ export default function ChangePassword() {
       setSuccess("Password updated successfully. Redirecting to login...");
 
       setTimeout(async () => {
+        // clear inactivity timestamp before logout
+        localStorage.removeItem("lastActivityTime");
+
         await signOut(auth);
         navigate("/login", { replace: true });
       }, 1500);
     } catch (err) {
-      if (err.code === "auth/wrong-password") setError("Current password is incorrect");
-      else if (err.code === "auth/requires-recent-login") setError("Please login again and retry");
-      else setError("Failed to update password");
+      if (err.code === "auth/wrong-password") {
+        setError("Current password is incorrect");
+      } else if (err.code === "auth/requires-recent-login") {
+        setError("Please login again and retry");
+      } else {
+        setError("Failed to update password");
+      }
     } finally {
       setLoading(false);
     }
@@ -62,7 +78,9 @@ export default function ChangePassword() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h2 style={{ textAlign: "center", marginBottom: "24px" }}>🔑 Change Password</h2>
+        <h2 style={{ textAlign: "center", marginBottom: "24px" }}>
+          🔑 Change Password
+        </h2>
 
         {error && <div className="error-text">{error}</div>}
         {success && <div className="success-text">{success}</div>}

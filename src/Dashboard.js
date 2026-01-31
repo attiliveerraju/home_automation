@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { ref, onValue, set } from "firebase/database";
 import { auth, db } from "./firebase";
 import { useNavigate } from "react-router-dom";
@@ -9,42 +9,42 @@ const rooms = [
   { key: "living", label: "Living", icon: "🛋️" }
 ];
 
+const ESP_TIMEOUT = 10000; // 10 seconds
+
 export default function Dashboard() {
   const [room, setRoom] = useState("hall");
   const [devices, setDevices] = useState({});
+  const [espOnline, setEspOnline] = useState(false);
   const navigate = useNavigate();
-  const inactivityTimer = useRef(null);
 
-  // Redirect if not logged in & setup Firebase listener
+  /* ================= AUTH CHECK + DEVICES ================= */
   useEffect(() => {
     if (!auth.currentUser) {
       navigate("/login", { replace: true });
       return;
     }
-    const r = ref(db, "devices");
-    onValue(r, (snap) => setDevices(snap.val() || {}));
+
+    const devicesRef = ref(db, "devices");
+    onValue(devicesRef, (snap) => {
+      setDevices(snap.val() || {});
+    });
   }, [navigate]);
 
-  // Auto logout on 1 min inactivity
-  const resetTimer = () => {
-    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    inactivityTimer.current = setTimeout(() => {
-      auth.signOut().then(() => navigate("/login", { replace: true }));
-    }, 60000); // 1 min
-  };
-
+  /* ================= ESP STATUS ================= */
   useEffect(() => {
-    resetTimer();
-    window.addEventListener("mousemove", resetTimer);
-    window.addEventListener("keydown", resetTimer);
+    const statusRef = ref(db, "esp/status/lastSeen");
 
-    return () => {
-      window.removeEventListener("mousemove", resetTimer);
-      window.removeEventListener("keydown", resetTimer);
-      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    };
+    onValue(statusRef, (snap) => {
+      const lastSeen = snap.val();
+      if (!lastSeen) {
+        setEspOnline(false);
+        return;
+      }
+      setEspOnline(Date.now() - lastSeen < ESP_TIMEOUT);
+    });
   }, []);
 
+  /* ================= TOGGLE DEVICE ================= */
   const toggle = (light) => {
     set(ref(db, `devices/${room}/${light}`), !devices[room][light]);
   };
@@ -69,14 +69,29 @@ export default function Dashboard() {
       <main>
         {/* Top Nav */}
         <div className="top-nav">
-          <div className="nav-left"></div>
+          <div className="nav-left">
+            <span
+              className={`esp-status ${espOnline ? "online" : "offline"}`}
+            >
+              {espOnline ? "🟢 ESP Online" : "🔴 ESP Offline"}
+            </span>
+          </div>
+
           <div className="nav-right">
-            <button className="nav-action" onClick={() => navigate("/change-password")}>
+            <button
+              className="nav-action"
+              onClick={() => navigate("/change-password")}
+            >
               🔑 Change Password
             </button>
+
             <button
               className="nav-action danger"
-              onClick={() => auth.signOut().then(() => navigate("/login", { replace: true }))}
+              onClick={() =>
+                auth.signOut().then(() =>
+                  navigate("/login", { replace: true })
+                )
+              }
             >
               🚪 Logout
             </button>

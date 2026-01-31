@@ -236,3 +236,19 @@ main {
     gap: 3vw;
   }
 }
+.esp-status {
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+}
+
+.esp-status.online {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.esp-status.offline {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
