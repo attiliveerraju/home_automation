@@ -9,7 +9,7 @@ const rooms = [
   { key: "living", label: "Living", icon: "🛋️" }
 ];
 
-const ESP_TIMEOUT = 10000; // 10 seconds
+const ESP_TIMEOUT = 2000; // 10 seconds
 
 export default function Dashboard() {
   const [room, setRoom] = useState("hall");
@@ -31,18 +31,30 @@ export default function Dashboard() {
   }, [navigate]);
 
   /* ================= ESP STATUS ================= */
-  useEffect(() => {
-    const statusRef = ref(db, "esp/status/lastSeen");
+  /* ================= ESP STATUS ================= */
+useEffect(() => {
+  const statusRef = ref(db, "esp/status/ts");
 
-    onValue(statusRef, (snap) => {
-      const lastSeen = snap.val();
-      if (!lastSeen) {
-        setEspOnline(false);
-        return;
-      }
-      setEspOnline(Date.now() - lastSeen < ESP_TIMEOUT);
-    });
-  }, []);
+  let lastSeen = 0;
+
+  const unsub = onValue(statusRef, (snap) => {
+    lastSeen = snap.val() || 0;
+  });
+
+  const interval = setInterval(() => {
+    if (!lastSeen) {
+      setEspOnline(false);
+      return;
+    }
+
+    setEspOnline(Date.now() - lastSeen < ESP_TIMEOUT);
+  }, 2000); // check every 2 seconds
+
+  return () => {
+    clearInterval(interval);
+    unsub();
+  };
+}, []);
 
   /* ================= TOGGLE DEVICE ================= */
   const toggle = (light) => {
