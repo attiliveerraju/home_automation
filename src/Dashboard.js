@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ref, onValue, set } from "firebase/database";
 import { auth, db } from "./firebase";
 import { useNavigate } from "react-router-dom";
+import { useRef } from "react";
 
 const rooms = [
   { key: "hall", label: "Hall", icon: "🏛️" },
@@ -9,13 +10,14 @@ const rooms = [
   { key: "living", label: "Living", icon: "🛋️" }
 ];
 
-const ESP_TIMEOUT = 2000; // 10 seconds
+const ESP_TIMEOUT = 10000; // 10 seconds
 
 export default function Dashboard() {
   const [room, setRoom] = useState("hall");
   const [devices, setDevices] = useState({});
   const [espOnline, setEspOnline] = useState(false);
   const navigate = useNavigate();
+  const lastSeenRef = useRef(0);
 
   /* ================= AUTH CHECK + DEVICES ================= */
   useEffect(() => {
@@ -33,29 +35,44 @@ export default function Dashboard() {
   /* ================= ESP STATUS ================= */
   /* ================= ESP STATUS ================= */
 useEffect(() => {
-  const statusRef = ref(db, "esp/status/ts");
 
-  let lastSeen = 0;
+    const statusRef = ref(db, "esp/status/lastSeen");
 
-  const unsub = onValue(statusRef, (snap) => {
-    lastSeen = snap.val() || 0;
-  });
+    // Listen to Firebase
+    const unsubscribe = onValue(statusRef, (snapshot) => {
+      const value = snapshot.val()/10;
+      if (value) {
+        lastSeenRef.current = Number(value);
+      } else {
+        lastSeenRef.current = 0;
+      }
+    });
 
-  const interval = setInterval(() => {
-    if (!lastSeen) {
-      setEspOnline(false);
-      return;
-    }
+    // Check ESP status every 2 seconds
+    const interval = setInterval(() => {
 
-    setEspOnline(Date.now() - lastSeen < ESP_TIMEOUT);
-  }, 2000); // check every 2 seconds
+      const now = Date.now();
+      const lastSeen = lastSeenRef.current;
 
-  return () => {
-    clearInterval(interval);
-    unsub();
-  };
-}, []);
+      if (lastSeen === 0) {
+        setEspOnline(false);
+        return;
+      }
 
+      if (now - lastSeen < ESP_TIMEOUT) {
+        setEspOnline(true);
+      } else {
+        setEspOnline(false);
+      }
+
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
+
+  }, []);
   /* ================= TOGGLE DEVICE ================= */
   const toggle = (light) => {
     set(ref(db, `devices/${room}/${light}`), !devices[room][light]);
