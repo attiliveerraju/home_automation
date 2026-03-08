@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/home_automation/static/css/main.22790fd4.css",
-    "main.js": "/home_automation/static/js/main.6249ff43.js",
+    "main.js": "/home_automation/static/js/main.8100d128.js",
     "index.html": "/home_automation/index.html",
     "main.22790fd4.css.map": "/home_automation/static/css/main.22790fd4.css.map",
-    "main.6249ff43.js.map": "/home_automation/static/js/main.6249ff43.js.map"
+    "main.8100d128.js.map": "/home_automation/static/js/main.8100d128.js.map"
   },
   "entrypoints": [
     "static/css/main.22790fd4.css",
-    "static/js/main.6249ff43.js"
+    "static/js/main.8100d128.js"
   ]
 }
