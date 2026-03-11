@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { ref, onValue, set } from "firebase/database";
+import { ref, onValue, set, push, remove } from "firebase/database";
 import { auth, db } from "./firebase";
 import { useNavigate } from "react-router-dom";
-import { useRef } from "react";
 
 const rooms = [
   { key: "hall", label: "Hall", icon: "🏛️" },
@@ -10,103 +9,203 @@ const rooms = [
   { key: "living", label: "Living", icon: "🛋️" }
 ];
 
-const ESP_TIMEOUT = 10000; // 10 seconds
+const ESP_TIMEOUT = 10000;
 
 export default function Dashboard() {
+
   const [room, setRoom] = useState("hall");
   const [devices, setDevices] = useState({});
   const [espOnline, setEspOnline] = useState(false);
-  const navigate = useNavigate();
-  const lastSeenRef = useRef(0);
+  const [tab, setTab] = useState("devices");
 
-  /* ================= AUTH CHECK + DEVICES ================= */
+  const navigate = useNavigate();
+
+  /* ================= AUTH + DEVICE FETCH ================= */
+
   useEffect(() => {
+
     if (!auth.currentUser) {
       navigate("/login", { replace: true });
       return;
     }
 
     const devicesRef = ref(db, "devices");
-    onValue(devicesRef, (snap) => {
+
+    return onValue(devicesRef, (snap) => {
       setDevices(snap.val() || {});
     });
+
   }, [navigate]);
 
+
+
   /* ================= ESP STATUS ================= */
-  /* ================= ESP STATUS ================= */
-useEffect(() => {
+
+  useEffect(() => {
 
     const statusRef = ref(db, "esp/status/lastSeen");
 
-    // Listen to Firebase
-    const unsubscribe = onValue(statusRef, (snapshot) => {
-      const value = snapshot.val()/10;
-      if (value) {
-        lastSeenRef.current = Number(value);
-      } else {
-        lastSeenRef.current = 0;
-      }
+    let lastSeen = 0;
+
+    const unsub = onValue(statusRef, (snap) => {
+      lastSeen = snap.val() || 0;
     });
 
-    // Check ESP status every 2 seconds
     const interval = setInterval(() => {
 
-      const now = Date.now();
-      const lastSeen = lastSeenRef.current;
-
-      if (lastSeen === 0) {
+      if (!lastSeen) {
         setEspOnline(false);
         return;
       }
 
-      if (now - lastSeen < ESP_TIMEOUT) {
-        setEspOnline(true);
-      } else {
-        setEspOnline(false);
-      }
+      setEspOnline(Date.now() - lastSeen < ESP_TIMEOUT);
 
     }, 2000);
 
     return () => {
       clearInterval(interval);
-      unsubscribe();
+      unsub();
     };
 
   }, []);
-  /* ================= TOGGLE DEVICE ================= */
+
+
+
+  /* ================= DEVICE TOGGLE ================= */
+
   const toggle = (light) => {
-    set(ref(db, `devices/${room}/${light}`), !devices[room][light]);
+
+    set(
+      ref(db, `devices/${room}/${light}`),
+      !devices[room][light]
+    );
+
   };
 
+
+
+  /* ================= SCHEDULING ================= */
+
+  const [scheduleRoom, setScheduleRoom] = useState("hall");
+  const [scheduleDevice, setScheduleDevice] = useState("");
+  const [scheduleStatus, setScheduleStatus] = useState(true);
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [schedules, setSchedules] = useState({});
+
+
+
+  useEffect(() => {
+
+    const scheduleRef = ref(db, "schedules");
+
+    return onValue(scheduleRef, (snap) => {
+      setSchedules(snap.val() || {});
+    });
+
+  }, []);
+
+
+
+  const addSchedule = () => {
+
+    if (!scheduleDevice || !scheduleTime) {
+      alert("Fill all fields");
+      return;
+    }
+
+    const ts = new Date(scheduleTime).getTime();
+
+    if (ts < Date.now()) {
+      alert("Select future time");
+      return;
+    }
+
+    push(ref(db, "schedules"), {
+      room: scheduleRoom,
+      device: scheduleDevice,
+      status: scheduleStatus,
+      time: ts
+    });
+
+    setScheduleDevice("");
+    setScheduleTime("");
+
+  };
+
+
+
+  const deleteSchedule = (id) => {
+    remove(ref(db, "schedules/" + id));
+  };
+
+
+
+  /* ===== Device list auto from firebase ===== */
+
+  const deviceList =
+    devices[scheduleRoom] ? Object.keys(devices[scheduleRoom]) : [];
+
+
+
   return (
+
     <div className="dashboard layout">
-      {/* LEFT NAV: Rooms */}
+
+      {/* LEFT NAV */}
+
       <aside>
-        {rooms.map((r) => (
-          <button
-            key={r.key}
-            className={`nav-tab ${room === r.key ? "active" : ""}`}
-            onClick={() => setRoom(r.key)}
-          >
-            <span className="icon">{r.icon}</span>
-            {r.label}
-          </button>
-        ))}
+
+        <button
+          className={`nav-tab ${tab === "devices" ? "active" : ""}`}
+          onClick={() => setTab("devices")}
+        >
+          💡 Devices
+        </button>
+
+        <button
+          className={`nav-tab ${tab === "schedule" ? "active" : ""}`}
+          onClick={() => setTab("schedule")}
+        >
+          ⏰ Schedule
+        </button>
+
+
+        {tab === "devices" &&
+          rooms.map((r) => (
+
+            <button
+              key={r.key}
+              className={`nav-tab ${room === r.key ? "active" : ""}`}
+              onClick={() => setRoom(r.key)}
+            >
+              <span className="icon">{r.icon}</span>
+              {r.label}
+            </button>
+
+          ))}
+
       </aside>
 
-      {/* MAIN CONTENT */}
+
+
+      {/* MAIN */}
+
       <main>
-        {/* Top Nav */}
+
+        {/* TOP BAR */}
+
         <div className="top-nav">
+
           <div className="nav-left">
-            <span
-              className={`esp-status ${espOnline ? "online" : "offline"}`}
-            >
+
+            <span className={`esp-status ${espOnline ? "online" : "offline"}`}>
               {espOnline ? "🟢 ESP Online" : "🔴 ESP Offline"}
             </span>
+
           </div>
 
           <div className="nav-right">
+
             <button
               className="nav-action"
               onClick={() => navigate("/change-password")}
@@ -124,23 +223,140 @@ useEffect(() => {
             >
               🚪 Logout
             </button>
+
           </div>
+
         </div>
 
-        {/* Lights Grid */}
-        <div className="lights">
-          {devices[room] &&
-            Object.keys(devices[room]).map((l) => (
-              <div
-                key={l}
-                className={devices[room][l] ? "light on pulse" : "light"}
-                onClick={() => toggle(l)}
+
+
+        {/* ================= DEVICES ================= */}
+
+        {tab === "devices" &&
+
+          <div className="lights">
+
+            {devices[room] &&
+              Object.keys(devices[room]).map((l) => (
+
+                <div
+                  key={l}
+                  className={devices[room][l] ? "light on pulse" : "light"}
+                  onClick={() => toggle(l)}
+                >
+                  💡 {l}
+                </div>
+
+              ))}
+
+          </div>
+
+        }
+
+
+
+        {/* ================= SCHEDULE ================= */}
+
+        {tab === "schedule" &&
+
+          <div className="schedule">
+
+            <h2>Add Schedule</h2>
+
+            <div className="schedule-form">
+
+              <select
+                value={scheduleRoom}
+                onChange={(e) => setScheduleRoom(e.target.value)}
               >
-                💡 {l}
-              </div>
-            ))}
-        </div>
+                <option value="hall">Hall</option>
+                <option value="bedroom">Bedroom</option>
+                <option value="living">Living</option>
+              </select>
+
+
+
+              {/* Device auto dropdown */}
+
+              <select
+                value={scheduleDevice}
+                onChange={(e) => setScheduleDevice(e.target.value)}
+              >
+
+                <option value="">Select Device</option>
+
+                {deviceList.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+
+              </select>
+
+
+
+              <select
+                value={scheduleStatus}
+                onChange={(e) => setScheduleStatus(e.target.value === "true")}
+              >
+                <option value="true">ON</option>
+                <option value="false">OFF</option>
+              </select>
+
+
+
+              <input
+                type="datetime-local"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+              />
+
+
+              <button onClick={addSchedule}>
+                Add
+              </button>
+
+            </div>
+
+
+
+            <h3>Schedules</h3>
+
+            {Object.keys(schedules).map((id) => {
+
+              const s = schedules[id];
+
+              return (
+
+                <div key={id} className="schedule-item">
+
+                  <b>{s.room}</b> - {s.device}
+
+                  {" | "}
+
+                  {s.status ? "ON" : "OFF"}
+
+                  {" | "}
+
+                  {new Date(s.time).toLocaleString()}
+
+                  <button onClick={() => deleteSchedule(id)}>
+                    Delete
+                  </button>
+
+                </div>
+
+              );
+
+            })}
+
+          </div>
+
+        }
+
       </main>
+
     </div>
+
   );
 }
